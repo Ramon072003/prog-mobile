@@ -33,3 +33,37 @@ O aplicativo de academia visa garantir uma interface rápida e ininterrupta para
   - Mitigação: Armazenar a mídia capturada num diretório enclausurado dentro do FileSystem do Expo app, que não fique exportado por padrão.
 - **[Risk] Complexidade de Filas de API:** Escrever rotinas lógicas de Retry e State Machine num projeto de escopo curto de aula iterativa.
   - Mitigação: Uma arquitetura em tabela: uma coluna indicadora (ex: `sync_status` e `media_sync`) bastam como flag reativa para disparar requisições em idle.
+
+## Testing Strategy
+
+- **Stack:** Jest + `jest-expo` preset, `@testing-library/react-native`, mocks manuais centralizados em `__mocks__/`.
+- **Entidades como Classes:** As entidades do Domain (`Workout`, `WorkoutExercise`, `Exercise`) são classes com métodos de negócio (`workout.complete()`, `workout.markSynced()`), tornando o estado e as transições testáveis unitariamente.
+- **Hooks estilo react-query:** Os hooks de Presentation expõem `{ mutate, isPending, error }`, permitindo que o estado assíncrono seja testado com `renderHook` + `waitFor` do `@testing-library/react-native`.
+- **`useSyncWorker` centralizado:** A sincronização de dados e upload de mídia vive em um único hook montado na raiz do app. Ele escuta o `NetInfo` e injeta os use cases como parâmetros, garantindo testabilidade via `renderHook` sem dependência de SQLite ou Supabase reais.
+- **Meta de cobertura:** 70% de cobertura de linhas, configurado no `jest.config.js` via `coverageThreshold`. Priorizar Domain e Application como zonas de maior cobertura.
+
+## UI & Navigation
+
+- **Expo Router — Stack Puro:** Nenhuma Tab Bar. O app tem um único fluxo principal linear (Home → Active Workout → WorkoutDetail), o que torna tabs desnecessárias e uma barra adicional confusa para o escopo atual.
+  ```
+  app/
+    _layout.tsx          ← RootLayout: monta useSyncWorker
+    (auth)/
+      _layout.tsx        ← redireciona se sessão ativa
+      index.tsx          ← Login
+      signup.tsx         ← Cadastro
+    (app)/
+      _layout.tsx        ← redireciona se não autenticado
+      index.tsx          ← Home / Histórico Semanal
+      active-workout.tsx ← Treino Ativo
+      workout/
+        [id].tsx         ← Detalhes do Treino
+  ```
+- **Fluxo pós-conclusão:** Ao tocar "Concluir Treino", o app navega via `router.replace` para `WorkoutDetailScreen` (`/workout/[id]`), substituindo a tela de treino ativo na stack. O usuário então usa o botão de voltar para retornar à Home.
+- **Indicador de Sync (Nível 1):** Badge sutil em cada card de treino na Home, refletindo o `sync_status` local. Ícone `⏳` para `pending` e `✅` para `synced`. Nenhuma UI adicional de sync nas demais telas.
+- **Estados Vazios:**
+  - *Home sem treinos na semana:* Mensagem encorajadora + botão "Iniciar Novo Treino" destacado.
+  - *Active Workout sem exercícios:* Texto guia "Toque + para adicionar seu primeiro exercício".
+  - *Dropdown de exercícios vazio:* Mensagem "Nenhum exercício encontrado" (ocorre se o sync inicial ainda não ocorreu).
+- **Carregamento:** O SQLite é fonte de verdade local — carregamentos são imperceptíveis. A única exceção é o mapa no `WorkoutDetailScreen` (tiles do `react-native-maps` têm delay de rede); exibir um `ActivityIndicator` sobreposto até o mapa estar pronto.
+- **Localização ausente no WorkoutDetail:** Se o treino não tem `latitude`/`longitude` (permissão negada ou GPS indisponível), o componente de mapa é simplesmente omitido. Nenhum placeholder ou mensagem de erro.
