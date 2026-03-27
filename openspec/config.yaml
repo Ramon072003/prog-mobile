@@ -1,20 +1,60 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  # Repforge Tracker — Contexto do Projeto
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  App Mobile de rastreamento de treinos desenvolvido estritamente com React Native e Expo SDK.
+  Projeto de aula com foco em arquitetura Offline-First e integração nativa robusta.
+
+  ## Tech Stack (Obrigatória — Sem Exceções)
+  - **Framework:** React Native com Expo SDK (versão recente)
+  - **Linguagem:** TypeScript
+  - **Roteamento:** Expo Router (file-based routing, stack puro — sem Tab Bar)
+  - **Banco Local:** expo-sqlite (fonte de verdade da UI)
+  - **Backend/Nuvem:** Supabase (PostgreSQL via PostgREST + Storage Bucket + Auth)
+  - **Mapas:** react-native-maps (única biblioteca permitida para mapas)
+  - **Câmera:** expo-camera
+  - **Localização:** expo-location
+  - **Rede/Conectividade:** @react-native-community/netinfo
+  - **FileSystem:** expo-file-system
+
+  ## Restrições de Bibliotecas (MUST NOT usar)
+  - MUST NOT usar APIs de navegador web (ex: navigator.geolocation, localStorage, fetch de APIs web)
+  - MUST NOT usar bibliotecas de mapa web (ex: Leaflet, Google Maps JS SDK)
+  - MUST NOT usar bibliotecas de câmera não-Expo
+  - MUST NOT instalar pacotes não listados sem aprovação explícita
+
+  ## Arquitetura (Clean Architecture Pragmática)
+  - `domain/`: Entidades core (Workout, WorkoutExercise, Exercise) e interfaces de repositório
+  - `application/`: Casos de uso (SaveWorkoutOffline, SyncWorkouts, UploadWorkoutMedia, FetchMasterExercises)
+  - `infrastructure/`: Implementações reais (SQLiteWorkoutRepository, SupabaseWorkoutRepository, etc.)
+  - `presentation/`: Telas e hooks React Native consumindo os Use Cases
+
+  ## Princípios Offline-First
+  - SQLite é a fonte de verdade — toda escrita vai para o SQLite primeiro
+  - A UI NEVER espera por respostas de rede para renderizar ou confirmar ações
+  - Sincronização com Supabase ocorre SEMPRE em background, de forma silenciosa
+  - Campos de status: sync_status (pending | synced) e media_sync (pending | uploaded)
+
+  ## Ícones e Assets
+  - Biblioteca de ícones: @expo/vector-icons (obrigatória)
+  - MUST NOT usar emojis no lugar de ícones de interface
+  - Paleta de cores: tema dark com accent verde (#00C853 ou equivalente)
+
+rules:
+  proposal:
+    - Manter propostas focadas em comportamento do usuário, nunca em detalhes de implementação
+    - Incluir sempre a seção "Non-Goals" para delimitar o escopo
+  specs:
+    - Usar exclusivamente linguagem RFC 2119 (MUST, SHALL, SHOULD, MAY, MUST NOT)
+    - Formato de cenários: Dado / Quando / Então
+    - Proibido incluir nomes de bibliotecas, código ou detalhes de implementação nas specs
+  tasks:
+    - Quebrar tarefas em unidades de no máximo 2 horas de trabalho
+    - Respeitar ordem de dependência: banco de dados antes de UI
+    - Incluir etapas de validação após implementações críticas
+    - Marcar tarefas TDD com prefixo [TDD]
+  design:
+    - Especificar plugins do Expo necessários no app.json/app.config.js
+    - Definir schemas do Supabase e SQLite com mapeamento explícito
+    - Descrever fluxo completo de arquivos de mídia (captura → FileSystem → Supabase Storage)

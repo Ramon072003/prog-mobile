@@ -1,49 +1,86 @@
-## ADDED Requirements
+# workout-management
 
-### Requirement: Create and Track Workouts
-The system SHALL allow users to create workouts, add specific exercises to them, and mark them as completed.
+## Visão Geral
 
-#### Scenario: Create a new workout
-- **WHEN** the user taps "Iniciar Novo Treino" on the Home Screen
-- **THEN** an active workout session is created with the current date
+Gerencia o ciclo de vida completo de um treino: criação, adição e remoção de exercícios, conclusão e visualização do histórico semanal. É a capability central do app.
 
-#### Scenario: Add exercise to workout
-- **WHEN** the user selects an exercise from the pre-defined dropdown and inputs sets, reps, and weight
-- **THEN** the exercise is linked to the active workout session in the local database
+## Regras e Invariantes
 
-#### Scenario: Complete a workout
-- **WHEN** the user taps "Concluir Treino"
-- **THEN** the system marks the workout status as completed and navigates to the WorkoutDetail screen for that workout
+- Um treino MUST ser criado com status `active` e `sync_status: pending` ao iniciar.
+- Um treino ativo MUST pertencer ao usuário autenticado.
+- Séries (`sets`), repetições (`reps`) e carga (`weight`) MUST ser valores numéricos maiores que zero.
+- Um exercício MUST NOT ser adicionado ao treino sem que todos os três campos (sets, reps, weight) estejam preenchidos e válidos.
+- O sistema MUST permitir remover um exercício de um treino ativo.
+- Ao concluir um treino, o status MUST mudar de `active` para `completed`.
+- A Home MUST exibir apenas os treinos da semana corrente.
+- O sistema MUST NOT permitir que dois treinos estejam com status `active` simultaneamente.
 
-### Requirement: Weekly History
-The system SHALL display a summary of workouts completed during the current week.
+## Cenários
 
-#### Scenario: View weekly schedule
-- **WHEN** the user opens the Home Screen
-- **THEN** a list/summary of the week's completed workouts is displayed with essential metrics
+### Cenário 1: Iniciar novo treino
+**Dado** que o usuário está na Home  
+**Quando** ele toca em "Iniciar Novo Treino"  
+**Então** o sistema MUST criar uma sessão de treino com a data atual e status `active`  
+**E** MUST navegar para a tela de Treino Ativo
 
-#### Scenario: View empty weekly history
-- **WHEN** the user opens the Home Screen and has no workouts logged in the current week
-- **THEN** an encouraging empty state message is displayed with the "Iniciar Novo Treino" button prominently visible
+---
 
-### Requirement: Workout Detail Screen
-The system SHALL display a dedicated detail screen for any completed workout, showing its exercises and, optionally, its location on a map.
+### Cenário 2: Adicionar exercício com campos válidos
+**Dado** que o usuário está na tela de Treino Ativo e abre o modal de adicionar exercício  
+**Quando** ele seleciona um exercício e preenche sets, reps e weight com valores maiores que zero  
+**Então** o sistema MUST vincular o exercício ao treino ativo no banco local  
+**E** MUST exibir o exercício na lista da tela de Treino Ativo imediatamente
 
-#### Scenario: View workout detail
-- **WHEN** the user taps on a past workout card on the Home Screen
-- **THEN** the WorkoutDetail screen is displayed with the workout's date, list of exercises (with sets, reps, weight, and any photo thumbnail), and a map if coordinates are available
+---
 
-#### Scenario: Active workout navigates to detail after completion
-- **WHEN** the user taps "Concluir Treino" and the workout is saved
-- **THEN** the app navigates directly to the WorkoutDetail screen for the just-completed workout via `router.replace`
+### Cenário 3: Tentar adicionar exercício com campos inválidos
+**Dado** que o usuário está no modal de adicionar exercício  
+**Quando** ele tenta confirmar com um ou mais campos vazios ou com valor zero  
+**Então** o sistema MUST exibir uma mensagem de validação no campo inválido  
+**E** MUST NOT adicionar o exercício ao treino
 
-### Requirement: Sync Status Indicator
-The system SHALL display a subtle sync status badge on each workout card in the Home Screen history.
+---
 
-#### Scenario: Workout card shows pending sync
-- **WHEN** a workout card is rendered and its `sync_status` is `"pending"`
-- **THEN** a ⏳ icon badge is visible on the card
+### Cenário 4: Estado vazio no treino ativo
+**Dado** que o usuário está na tela de Treino Ativo sem nenhum exercício adicionado  
+**Quando** a tela é exibida  
+**Então** o sistema MUST mostrar uma mensagem guia incentivando adicionar o primeiro exercício  
+**E** MUST NOT exibir uma lista vazia sem orientação
 
-#### Scenario: Workout card shows synced
-- **WHEN** a workout card is rendered and its `sync_status` is `"synced"`
-- **THEN** a ✅ icon badge is visible on the card
+---
+
+### Cenário 5: Concluir treino
+**Dado** que o usuário está na tela de Treino Ativo com ao menos um exercício adicionado  
+**Quando** ele toca em "Concluir Treino"  
+**Então** o sistema MUST atualizar o status do treino para `completed`  
+**E** MUST navegar para a tela de Detalhes do Treino via `router.replace`
+
+---
+
+### Cenário 6: Home com treinos na semana
+**Dado** que o usuário tem treinos concluídos na semana corrente  
+**Quando** ele abre a Home  
+**Então** o sistema MUST exibir um card por treino com data, grupos musculares e badge de sync
+
+---
+
+### Cenário 7: Home sem treinos na semana
+**Dado** que o usuário não tem nenhum treino registrado na semana corrente  
+**Quando** ele abre a Home  
+**Então** o sistema MUST exibir um estado vazio com mensagem encorajadora  
+**E** MUST exibir o botão "Iniciar Novo Treino" em destaque
+
+---
+
+### Cenário 8: Visualizar detalhes de um treino concluído
+**Dado** que o usuário está na Home e vê um card de treino passado  
+**Quando** ele toca no card  
+**Então** o sistema MUST navegar para a tela de Detalhes exibindo: data, lista de exercícios (com sets, reps, peso, foto thumbnail se disponível) e mapa (se coordenadas disponíveis)
+
+---
+
+### Cenário 9: Badge de sync no card de treino
+**Dado** que o usuário está na Home e um treino tem `sync_status: pending`  
+**Quando** o card é renderizado  
+**Então** o sistema MUST exibir um ícone visual de pendente no card  
+**E** quando o status for `synced`, MUST exibir um ícone de confirmação
