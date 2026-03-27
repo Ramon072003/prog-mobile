@@ -1,22 +1,62 @@
-## ADDED Requirements
+# offline-sync
 
-### Requirement: Local Persistence
-The system SHALL persist all workouts and related exercises directly into the `expo-sqlite` database before attempting network communication.
+## Visão Geral
 
-#### Scenario: Save workout offline
-- **WHEN** the user completes a workout without network connection
-- **THEN** the workout and its exercises are saved locally with a pending sync status
+Define o comportamento de persistência local (offline-first) e a lógica de sincronização silenciosa em background com o Supabase. A UI nunca deve bloquear o usuário esperando por uma resposta de rede.
 
-### Requirement: Background Synchronization
-The system SHALL synchronize pending local records to the Supabase Database whenever the network is available.
+## Regras e Invariantes
 
-#### Scenario: Successful background data sync
-- **WHEN** network connectivity is detected and there are records marked as pending sync
-- **THEN** the system updates the records in the Supabase Database and changes the local sync status to successful
+- O SQLite MUST ser a fonte de verdade para todas as operações de leitura e escrita da UI.
+- Toda operação de escrita (salvar treino, adicionar exercício) MUST ser gravada primeiro no SQLite, independentemente do estado da rede.
+- Registros locais MUST ser marcados com `sync_status: pending` ao serem criados.
+- A sincronização com o Supabase MUST ocorrer em background, sem bloquear ou exibir loading para o usuário.
+- Em caso de falha na sincronização, o sistema MUST NOT exibir erro para o usuário e MUST manter o status `pending` para nova tentativa.
+- Após sync bem-sucedido, o sistema MUST atualizar o `sync_status` do registro para `synced` no SQLite local.
+- O catálogo de exercícios (Exercise Master List) MUST ser cacheado no SQLite após a primeira sincronização.
 
-### Requirement: Exercise Master List Sync
-The system SHALL fetch a read-only list of predefined exercises from Supabase and cache them locally.
+## Cenários
 
-#### Scenario: Initial cache load
-- **WHEN** the user authenticates for the first time
-- **THEN** the complete list of exercises is downloaded and stored within the local SQLite instance
+### Cenário 1: Salvar treino sem conexão
+**Dado** que o dispositivo está offline  
+**Quando** o usuário salva um treino ou adiciona um exercício  
+**Então** o sistema MUST persistir todos os dados no SQLite local com `sync_status: pending`  
+**E** MUST NOT exibir mensagem de erro ou bloqueio na UI
+
+---
+
+### Cenário 2: Sincronização ao recuperar conexão
+**Dado** que o dispositivo estava offline e recuperou a conexão  
+**Quando** a conectividade é detectada  
+**Então** o sistema MUST iniciar silenciosamente a sincronização dos registros `pending` com o Supabase  
+**E** MUST NOT interromper o fluxo do usuário com toasts, banners ou loadings
+
+---
+
+### Cenário 3: Sync bem-sucedido
+**Dado** que a sincronização de um treino com o Supabase foi concluída  
+**Quando** o upload é confirmado  
+**Então** o sistema MUST atualizar o `sync_status` do registro local para `synced`  
+**E** o badge do card correspondente na Home MUST refletir o novo status
+
+---
+
+### Cenário 4: Falha na sincronização
+**Dado** que o sistema tentou sincronizar um registro com o Supabase  
+**Quando** ocorre um erro (timeout, erro de servidor, sem resposta)  
+**Então** o sistema MUST NOT alterar o `sync_status` do registro  
+**E** MUST silenciosamente tentar novamente na próxima oportunidade de conectividade
+
+---
+
+### Cenário 5: Catálogo de exercícios vazio no primeiro acesso
+**Dado** que o usuário acabou de se autenticar e o SQLite local não tem exercícios  
+**Quando** a conexão está disponível  
+**Então** o sistema MUST baixar o catálogo completo de exercícios do Supabase e armazená-lo no SQLite
+
+---
+
+### Cenário 6: Picker de exercícios sem catálogo local
+**Dado** que o banco local ainda não possui o catálogo de exercícios (sync ainda não ocorreu)  
+**Quando** o usuário abre o modal de adicionar exercício  
+**Então** o sistema SHOULD exibir uma mensagem informando que nenhum exercício foi encontrado  
+**E** MUST NOT travar ou crashar a aplicação
