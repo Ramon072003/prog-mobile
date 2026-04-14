@@ -1,5 +1,6 @@
 import { Workout, WorkoutStatus, SyncStatus } from "../../domain/entities/Workout";
 import { IWorkoutRepository } from "../../domain/repositories/IWorkoutRepository";
+import { generateUUID } from "../../infrastructure/utils/generateUUID";
 
 export class CreateWorkout {
   constructor(private workoutRepo: IWorkoutRepository) {}
@@ -11,7 +12,7 @@ export class CreateWorkout {
     }
 
     const newWorkout = new Workout({
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateUUID(),
       user_id: userId,
       date: new Date().toISOString().split("T")[0],
       status: WorkoutStatus.ACTIVE,

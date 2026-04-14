@@ -12,6 +12,15 @@ export class SQLiteWorkoutExerciseRepository implements IWorkoutExerciseReposito
     );
   }
 
+  async findById(id: string): Promise<WorkoutExercise | null> {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<any>(
+      "SELECT * FROM workout_exercises WHERE id = ?",
+      [id]
+    );
+    return row ? new WorkoutExercise(row) : null;
+  }
+
   async findByWorkoutId(workoutId: string): Promise<WorkoutExercise[]> {
     const db = await getDatabase();
     const rows = await db.getAllAsync<any>(

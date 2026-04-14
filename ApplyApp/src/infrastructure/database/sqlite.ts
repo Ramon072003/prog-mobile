@@ -2,8 +2,11 @@ import * as SQLite from "expo-sqlite";
 
 const DATABASE_NAME = "repforge.db";
 
+let _db: SQLite.SQLiteDatabase | null = null;
+
 export async function initializeDatabase() {
   const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
+  _db = db;
 
   // Ativar Foreign Keys
   await db.execAsync("PRAGMA foreign_keys = ON;");
@@ -50,7 +53,39 @@ export async function initializeDatabase() {
     );
   `);
 
+  // Tabela de Perfis de Usuário
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      avatar_url TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Migrations: adicionar colunas novas sem recriar tabelas
+  const migrations = [
+    "ALTER TABLE workouts ADD COLUMN duration_seconds INTEGER",
+    "ALTER TABLE workouts ADD COLUMN location_name TEXT",
+  ];
+  for (const sql of migrations) {
+    try {
+      await db.execAsync(sql);
+    } catch {
+      // Coluna já existe — ignorar
+    }
+  }
+
+  // Limpar registros com IDs não-UUID (gerados por bug anterior)
+  await db.execAsync(`DELETE FROM workout_exercises WHERE length(id) < 20`);
+  await db.execAsync(`DELETE FROM workouts WHERE length(id) < 20`);
+
   return db;
 }
 
-export const getDatabase = () => SQLite.openDatabaseAsync(DATABASE_NAME);
+export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+  if (_db) return _db;
+  // Fallback: se chamado antes de initializeDatabase, inicializa agora
+  return initializeDatabase();
+}

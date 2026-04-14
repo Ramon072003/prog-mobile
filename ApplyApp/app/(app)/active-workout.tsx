@@ -1,15 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Alert } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Animated,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { CreateWorkout } from "../../src/application/use-cases/CreateWorkout";
 import { CompleteWorkout } from "../../src/application/use-cases/CompleteWorkout";
+import { RemoveExerciseFromWorkout } from "../../src/application/use-cases/RemoveExerciseFromWorkout";
 import { SQLiteWorkoutRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutRepository";
 import { SQLiteWorkoutExerciseRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
 import { Workout } from "../../src/domain/entities/Workout";
 import { WorkoutExercise } from "../../src/domain/entities/WorkoutExercise";
 import { supabase } from "../../src/infrastructure/api/supabase";
 import { LocationService } from "../../src/infrastructure/services/LocationService";
+
+const WEEK_DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 export default function ActiveWorkoutScreen() {
   const [workout, setWorkout] = useState<Workout | null>(null);
@@ -21,6 +26,7 @@ export default function ActiveWorkoutScreen() {
   const weRepo = new SQLiteWorkoutExerciseRepository();
   const createWorkoutUC = new CreateWorkout(workoutRepo);
   const completeWorkoutUC = new CompleteWorkout(workoutRepo);
+  const removeExerciseUC = new RemoveExerciseFromWorkout(weRepo);
   const locationService = new LocationService();
 
   useEffect(() => {
@@ -29,11 +35,11 @@ export default function ActiveWorkoutScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (workout) {
-      loadExercises();
-    }
-  }, [workout]);
+  useFocusEffect(
+    useCallback(() => {
+      if (workout) loadExercises();
+    }, [workout])
+  );
 
   async function initWorkout() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -43,6 +49,10 @@ export default function ActiveWorkoutScreen() {
     }
   }
 
+  useEffect(() => {
+    if (workout) loadExercises();
+  }, [workout]);
+
   async function loadExercises() {
     if (workout) {
       const list = await weRepo.findByWorkoutId(workout.id);
@@ -51,154 +61,164 @@ export default function ActiveWorkoutScreen() {
   }
 
   async function handleFinish() {
-    if (workout) {
-      const coords = await locationService.getCurrentLocation();
-      await completeWorkoutUC.execute(workout.id, coords?.latitude, coords?.longitude);
-      Alert.alert("Sucesso", "Treino finalizado!");
-      router.replace(`/(app)/workout/${workout.id}`);
-    }
+    if (!workout) return;
+    Alert.alert("Finalizar Treino", "Deseja encerrar o treino?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Finalizar", onPress: async () => {
+          const coords = await locationService.getCurrentLocation();
+          await completeWorkoutUC.execute(workout.id, coords?.latitude, coords?.longitude);
+          // Salvar duração
+          try {
+            const db = await (await import("../../src/infrastructure/database/sqlite")).getDatabase();
+            await db.runAsync("UPDATE workouts SET duration_seconds = ? WHERE id = ?", [timer, workout.id]);
+          } catch { /* ignore */ }
+          router.replace(`/(app)/workout/${workout.id}`);
+        }
+      },
+    ]);
   }
 
-  const formatTime = (seconds: number) => {
-    const min = Math.floor(seconds / 60);
-    const sec = seconds % 60;
-    return `${min}:${sec.toString().padStart(2, '0')}`;
-  };
+  async function handleRemove(id: string) {
+    Alert.alert("Remover Exercício", "Tem certeza?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Remover", style: "destructive", onPress: async () => {
+          await removeExerciseUC.execute(id);
+          loadExercises();
+        }
+      },
+    ]);
+  }
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  const today = new Date();
+  const dayName = WEEK_DAYS[today.getDay()];
+  const dateStr = today.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).toUpperCase();
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="close" size={28} color="#FFF" />
+          <Ionicons name="arrow-back" size={26} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.timer}>{formatTime(timer)}</Text>
-        <TouchableOpacity onPress={handleFinish} style={styles.finishButton}>
-          <Text style={styles.finishText}>Finalizar</Text>
-        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Treino de {dayName}</Text>
+          <Text style={styles.headerDate}>{dateStr}</Text>
+        </View>
+        <View style={styles.timerBox}>
+          <Text style={styles.timerText}>{formatTime(timer)}</Text>
+        </View>
       </View>
 
       <FlatList
         data={exercises}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.exerciseCard}>
-            <Text style={styles.exerciseName}>Exercício #{item.exercise_id.substr(0, 4)}</Text>
-            <Text style={styles.exerciseDetails}>{item.sets} x {item.reps} — {item.weight} kg</Text>
+          <View style={styles.card}>
+            <View style={styles.cardBody}>
+              <Text style={styles.cardName}>Exercício</Text>
+              <Text style={styles.cardStats}>{item.sets} séries · {item.reps} reps · {item.weight} kg</Text>
+            </View>
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => router.push({
+                  pathname: "/(app)/exercise-input",
+                  params: {
+                    workoutId: workout?.id ?? "",
+                    exerciseId: item.exercise_id,
+                    exerciseName: "Exercício",
+                    editId: item.id,
+                    editSets: String(item.sets),
+                    editReps: String(item.reps),
+                    editWeight: String(item.weight),
+                  }
+                })}
+              >
+                <Ionicons name="create-outline" size={18} color="#00C853" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteBtn} onPress={() => handleRemove(item.id)}>
+                <Ionicons name="trash-outline" size={18} color="#FF5252" />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
-        ListHeaderComponent={
-          <View style={{ marginBottom: 20 }}>
-            <Text style={styles.title}>Treino Ativo</Text>
-            <Text style={styles.subtitle}>Esmaga que cresce! 💪</Text>
-          </View>
-        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="barbell-outline" size={60} color="#333" />
-            <Text style={styles.emptyText}>Adicione o primeiro exercício para começar.</Text>
+          <View style={styles.empty}>
+            <Ionicons name="barbell-outline" size={64} color="#2A2A2A" />
+            <Text style={styles.emptyText}>Adicione o primeiro exercício!</Text>
           </View>
         }
-        style={styles.list}
+        contentContainerStyle={{ paddingBottom: 180 }}
       />
 
-      <TouchableOpacity 
-        style={styles.addButton} 
-        onPress={() => router.push({
-          pathname: "/(app)/exercise-selector",
-          params: { workoutId: workout?.id }
-        })}
-      >
-        <Ionicons name="add" size={24} color="#00C853" />
-        <Text style={styles.addButtonText}>ADICIONAR EXERCÍCIO</Text>
-      </TouchableOpacity>
+      {/* Bottom actions */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => router.push({ pathname: "/(app)/exercise-selector", params: { workoutId: workout?.id } })}
+        >
+          <Ionicons name="add" size={22} color="#00C853" />
+          <Text style={styles.addBtnText}>EXERCÍCIO</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.finishBtn} onPress={handleFinish}>
+          <Text style={styles.finishBtnText}>FINALIZAR</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#121212",
-    padding: 20,
-    paddingTop: 60,
-  },
+  container: { flex: 1, backgroundColor: "#121212" },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
+    flexDirection: "row", alignItems: "flex-start",
+    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20,
+    borderBottomWidth: 1, borderBottomColor: "#1E1E1E",
   },
-  timer: {
-    color: "#00C853",
-    fontSize: 20,
-    fontWeight: "bold",
-    fontFamily: "monospace",
+  headerCenter: { flex: 1, marginLeft: 14 },
+  headerTitle: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  headerDate: { color: "#666", fontSize: 11, marginTop: 2 },
+  timerBox: {
+    backgroundColor: "#1E1E1E", paddingHorizontal: 12,
+    paddingVertical: 6, borderRadius: 20,
   },
-  finishButton: {
-    backgroundColor: "#00C853",
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-    borderRadius: 15,
+  timerText: { color: "#00C853", fontWeight: "bold", fontFamily: "monospace" },
+  card: {
+    backgroundColor: "#1E1E1E", marginHorizontal: 20,
+    marginTop: 12, padding: 16, borderRadius: 14,
+    flexDirection: "row", alignItems: "center",
+    borderLeftWidth: 4, borderLeftColor: "#00C853",
   },
-  finishText: {
-    color: "#000",
-    fontWeight: "bold",
+  cardBody: { flex: 1 },
+  cardName: { color: "#FFF", fontSize: 15, fontWeight: "bold" },
+  cardStats: { color: "#00C853", fontSize: 13, marginTop: 4 },
+  cardActions: { flexDirection: "row", gap: 12 },
+  editBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "#2A2A2A", justifyContent: "center", alignItems: "center",
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#FFF",
+  deleteBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "#2A2A2A", justifyContent: "center", alignItems: "center",
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#00C853",
-    marginTop: 5,
+  empty: { alignItems: "center", paddingTop: 80 },
+  emptyText: { color: "#444", fontSize: 15, marginTop: 16 },
+  footer: {
+    position: "absolute", bottom: 24, left: 20, right: 20,
+    flexDirection: "row", gap: 12,
   },
-  list: {
-    flex: 1,
+  addBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    borderWidth: 2, borderColor: "#00C853", borderRadius: 30,
+    paddingVertical: 16, gap: 8,
   },
-  exerciseCard: {
-    backgroundColor: "#1E1E1E",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: "#00C853",
+  addBtnText: { color: "#00C853", fontWeight: "bold", fontSize: 14 },
+  finishBtn: {
+    flex: 1, backgroundColor: "#00C853",
+    borderRadius: 30, paddingVertical: 16, alignItems: "center", justifyContent: "center",
   },
-  exerciseName: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  exerciseDetails: {
-    color: "#00C853",
-    fontSize: 14,
-    marginTop: 5,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    marginTop: 100,
-  },
-  emptyText: {
-    color: "#666",
-    textAlign: "center",
-    marginTop: 15,
-    fontSize: 16,
-  },
-  addButton: {
-    borderWidth: 2,
-    borderColor: "#00C853",
-    borderStyle: "dashed",
-    padding: 15,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-  },
-  addButtonText: {
-    color: "#00C853",
-    fontWeight: "bold",
-    marginLeft: 10,
-  },
+  finishBtnText: { color: "#000", fontWeight: "bold", fontSize: 14 },
 });

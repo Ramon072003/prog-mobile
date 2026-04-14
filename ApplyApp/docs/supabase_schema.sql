@@ -62,3 +62,25 @@ INSERT INTO public.exercises (name, muscle_group) VALUES
 ('Desenvolvimento', 'Ombros'),
 ('Rosca Direta', 'Bíceps'),
 ('Tríceps Pulley', 'Tríceps');
+
+-- 4. Tabela de Perfis de Usuário
+CREATE TABLE public.user_profiles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  name TEXT NOT NULL,
+  avatar_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own profile"
+ON public.user_profiles FOR ALL USING (auth.uid() = id);
+
+-- 5. Novas colunas em workouts (migration)
+ALTER TABLE public.workouts ADD COLUMN IF NOT EXISTS duration_seconds INTEGER;
+ALTER TABLE public.workouts ADD COLUMN IF NOT EXISTS location_name TEXT;
+-- Storage bucket para mídias de treino
+-- Execute no console do Supabase:
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('workout-media', 'workout-media', true);
+

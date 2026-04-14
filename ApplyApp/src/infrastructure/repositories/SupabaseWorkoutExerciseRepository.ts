@@ -17,6 +17,16 @@ export class SupabaseWorkoutExerciseRepository implements IWorkoutExerciseReposi
     if (error) throw new Error(`Erro ao salvar exercício do treino no Supabase: ${error.message}`);
   }
 
+  async findById(id: string): Promise<WorkoutExercise | null> {
+    const { data, error } = await supabase
+      .from("workout_exercises")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error || !data) return null;
+    return new WorkoutExercise(data);
+  }
+
   async findByWorkoutId(workoutId: string): Promise<WorkoutExercise[]> {
     const { data, error } = await supabase
       .from("workout_exercises")

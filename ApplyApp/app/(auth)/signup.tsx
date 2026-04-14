@@ -1,34 +1,70 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { supabase } from "../../src/infrastructure/api/supabase";
+import { UserProfile } from "../../src/domain/entities/UserProfile";
+import { SQLiteUserProfileRepository } from "../../src/infrastructure/repositories/SQLiteUserProfileRepository";
+import { SupabaseUserProfileRepository } from "../../src/infrastructure/repositories/SupabaseUserProfileRepository";
 
 export default function SignUpScreen() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   async function signUpWithEmail() {
-    setLoading(true);
-    const { data: { session }, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (error) {
-      Alert.alert("Erro no Cadastro", error.message);
-    } else if (!session) {
-      Alert.alert("Sucesso", "Verifique seu e-mail para confirmar a conta!");
-    } else {
-      router.replace("/(app)");
+    if (!name.trim() || name.trim().length < 2) {
+      Alert.alert("Erro", "Digite seu nome completo (mínimo 2 caracteres).");
+      return;
     }
-    setLoading(false);
+
+    setLoading(true);
+    try {
+      const { data: { session, user }, error } = await supabase.auth.signUp({ email, password });
+
+      if (error) {
+        Alert.alert("Erro no Cadastro", error.message);
+        return;
+      }
+
+      // Criar perfil do usuário
+      const userId = session?.user?.id ?? user?.id;
+      if (userId) {
+        const profile = new UserProfile({ id: userId, name: name.trim() });
+        const localRepo = new SQLiteUserProfileRepository();
+        const remoteRepo = new SupabaseUserProfileRepository();
+        // Salva localmente sempre (offline-first)
+        await localRepo.save(profile);
+        // Tenta salvar remotamente (pode falhar se ainda não confirmou email)
+        try { await remoteRepo.save(profile); } catch { /* ignorar em confirmação pendente */ }
+      }
+
+      if (!session) {
+        Alert.alert("Sucesso", "Verifique seu e-mail para confirmar a conta!");
+      } else {
+        router.replace("/(app)");
+      }
+    } catch (err: any) {
+      Alert.alert("Erro", err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Criar Conta</Text>
+      <Text style={styles.subtitle}>REPFORGE TRACKER</Text>
+
+      <TextInput
+        style={styles.input}
+        onChangeText={setName}
+        value={name}
+        placeholder="Nome completo"
+        placeholderTextColor="#666"
+        autoCapitalize="words"
+      />
       <TextInput
         style={styles.input}
         onChangeText={setEmail}
@@ -36,6 +72,7 @@ export default function SignUpScreen() {
         placeholder="E-mail"
         placeholderTextColor="#666"
         autoCapitalize="none"
+        keyboardType="email-address"
       />
       <TextInput
         style={styles.input}
@@ -45,8 +82,8 @@ export default function SignUpScreen() {
         placeholderTextColor="#666"
         secureTextEntry
       />
-      <TouchableOpacity 
-        style={[styles.button, loading && { opacity: 0.7 }]} 
+      <TouchableOpacity
+        style={[styles.button, loading && { opacity: 0.7 }]}
         onPress={signUpWithEmail}
         disabled={loading}
       >
@@ -57,13 +94,13 @@ export default function SignUpScreen() {
           <Text style={styles.linkText}>Já tem uma conta? Entrar</Text>
         </TouchableOpacity>
       </Link>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: "#121212",
     justifyContent: "center",
     padding: 20,
@@ -73,6 +110,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#00C853",
     textAlign: "center",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
+    letterSpacing: 3,
     marginBottom: 40,
   },
   input: {

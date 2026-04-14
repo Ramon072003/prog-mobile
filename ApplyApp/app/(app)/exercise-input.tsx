@@ -1,22 +1,35 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView,
+} from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SQLiteWorkoutExerciseRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
 import { AddExerciseToWorkout } from "../../src/application/use-cases/AddExerciseToWorkout";
+import { UpdateWorkoutExercise } from "../../src/application/use-cases/UpdateWorkoutExercise";
 import { CameraModal } from "../../src/presentation/components/CameraModal";
 import { MediaService } from "../../src/infrastructure/services/MediaService";
+import { StepperInput } from "../../src/presentation/components/StepperInput";
 
 export default function ExerciseInputScreen() {
-  const { workoutId, exerciseId, exerciseName } = useLocalSearchParams<{ 
-    workoutId: string; 
+  const {
+    workoutId, exerciseId, exerciseName,
+    editId, editSets, editReps, editWeight,
+  } = useLocalSearchParams<{
+    workoutId: string;
     exerciseId: string;
     exerciseName: string;
+    editId?: string;
+    editSets?: string;
+    editReps?: string;
+    editWeight?: string;
   }>();
-  
-  const [sets, setSets] = useState("3");
-  const [reps, setReps] = useState("10");
-  const [weight, setWeight] = useState("0");
+
+  const isEditing = !!editId;
+
+  const [sets, setSets] = useState(editSets ? parseInt(editSets) : 3);
+  const [reps, setReps] = useState(editReps ? parseInt(editReps) : 10);
+  const [weight, setWeight] = useState(editWeight ? parseFloat(editWeight) : 0);
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,34 +37,23 @@ export default function ExerciseInputScreen() {
   const router = useRouter();
   const weRepo = new SQLiteWorkoutExerciseRepository();
   const addExerciseUC = new AddExerciseToWorkout(weRepo);
+  const updateExerciseUC = new UpdateWorkoutExercise(weRepo);
   const mediaService = new MediaService();
 
   async function handleSave() {
-    if (!sets || !reps || !weight) {
-      Alert.alert("Erro", "Preencha todos os campos.");
-      return;
-    }
-
     setLoading(true);
     try {
-      let finalMediaUrl = undefined;
+      let finalMediaUrl: string | undefined;
       if (mediaUri) {
-        // Salva localmente primeiro (Offline-First)
-        const localPath = await mediaService.saveLocal(mediaUri);
-        finalMediaUrl = localPath;
-        
-        // O upload real seria feito em background pelo SyncWorker
-        // Para este MVP, vamos apenas registrar o path local
+        finalMediaUrl = await mediaService.saveLocal(mediaUri);
       }
 
-      await addExerciseUC.execute({
-        workout_id: workoutId,
-        exercise_id: exerciseId,
-        sets: parseInt(sets),
-        reps: parseInt(reps),
-        weight: parseFloat(weight)
-      });
-      router.dismiss(2); 
+      if (isEditing && editId) {
+        await updateExerciseUC.execute({ id: editId, sets, reps, weight, media_url: finalMediaUrl });
+      } else {
+        await addExerciseUC.execute({ workout_id: workoutId, exercise_id: exerciseId, sets, reps, weight });
+      }
+      router.back();
     } catch (error: any) {
       Alert.alert("Erro ao salvar", error.message);
     } finally {
@@ -60,146 +62,68 @@ export default function ExerciseInputScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="close" size={28} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Registrar Performance</Text>
+        <Text style={styles.title}>{isEditing ? "Editar Exercício" : "Registrar Performance"}</Text>
       </View>
 
       <Text style={styles.exerciseName}>{exerciseName}</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Séries</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={sets}
-          onChangeText={setSets}
-        />
-      </View>
+      <StepperInput label="SÉRIES" value={sets} step={1} min={1} max={20} onChange={setSets} />
+      <StepperInput label="REPETIÇÕES" value={reps} step={1} min={1} max={99} onChange={setReps} />
+      <StepperInput label="CARGA" value={weight} step={2.5} min={0} max={500} unit="kg" onChange={setWeight} />
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Repetições</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={reps}
-          onChangeText={setReps}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Peso (kg)</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numeric"
-          value={weight}
-          onChangeText={setWeight}
-        />
-      </View>
-
-      <TouchableOpacity 
-        style={[styles.mediaButton, mediaUri && styles.mediaButtonActive]} 
+      <TouchableOpacity
+        style={[styles.mediaButton, mediaUri && styles.mediaButtonActive]}
         onPress={() => setShowCamera(true)}
       >
-        <Ionicons name={mediaUri ? "checkmark-circle" : "camera"} size={24} color={mediaUri ? "#000" : "#00C853"} />
+        <Ionicons name={mediaUri ? "checkmark-circle" : "camera"} size={22} color={mediaUri ? "#000" : "#00C853"} />
         <Text style={[styles.mediaButtonText, mediaUri && { color: "#000" }]}>
-          {mediaUri ? "FOTO CAPTURADA" : "ADICIONAR FOTO (OPCIONAL)"}
+          {mediaUri ? "FOTO CAPTURADA ✓" : "ADICIONAR FOTO (OPCIONAL)"}
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity 
-        style={[styles.saveButton, loading && { opacity: 0.7 }]} 
+      <TouchableOpacity
+        style={[styles.saveButton, loading && { opacity: 0.7 }]}
         onPress={handleSave}
         disabled={loading}
       >
-        <Text style={styles.saveButtonText}>ADICIONAR AO TREINO</Text>
+        <Text style={styles.saveButtonText}>
+          {loading ? "Salvando..." : isEditing ? "ATUALIZAR" : "ADICIONAR AO TREINO"}
+        </Text>
       </TouchableOpacity>
 
-      <CameraModal 
-        visible={showCamera} 
-        onClose={() => setShowCamera(false)} 
-        onCapture={(uri) => {
-          setMediaUri(uri);
-          setShowCamera(false);
-        }} 
+      <CameraModal
+        visible={showCamera}
+        onClose={() => setShowCamera(false)}
+        onCapture={(uri) => { setMediaUri(uri); setShowCamera(false); }}
       />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#121212",
-    padding: 20,
-    paddingTop: 60,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 30,
-  },
-  title: {
-    color: "#FFF",
-    fontSize: 20,
-    fontWeight: "bold",
-    marginLeft: 15,
-  },
+  container: { flex: 1, backgroundColor: "#121212", padding: 20, paddingTop: 60 },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 24 },
+  title: { color: "#FFF", fontSize: 18, fontWeight: "bold", marginLeft: 16 },
   exerciseName: {
-    color: "#00C853",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 30,
-    textAlign: "center",
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    color: "#666",
-    marginBottom: 8,
-    fontSize: 14,
-  },
-  input: {
-    backgroundColor: "#1E1E1E",
-    color: "#FFF",
-    padding: 15,
-    borderRadius: 12,
-    fontSize: 18,
-    borderWidth: 1,
-    borderColor: "#333",
+    color: "#00C853", fontSize: 22, fontWeight: "bold",
+    textAlign: "center", marginBottom: 32,
   },
   mediaButton: {
-    borderWidth: 1,
-    borderColor: "#00C853",
-    padding: 15,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
+    borderWidth: 1, borderColor: "#00C853",
+    padding: 14, borderRadius: 12,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    marginTop: 4, marginBottom: 16, gap: 10,
   },
-  mediaButtonActive: {
-    backgroundColor: "#00C853",
-  },
-  mediaButtonText: {
-    color: "#00C853",
-    fontWeight: "bold",
-    marginLeft: 10,
-  },
+  mediaButtonActive: { backgroundColor: "#00C853" },
+  mediaButtonText: { color: "#00C853", fontWeight: "bold" },
   saveButton: {
-    backgroundColor: "#00C853",
-    padding: 18,
-    borderRadius: 30,
-    marginTop: 20,
-    alignItems: "center",
+    backgroundColor: "#00C853", padding: 18,
+    borderRadius: 30, alignItems: "center",
   },
-  saveButtonText: {
-    color: "#000",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+  saveButtonText: { color: "#000", fontWeight: "bold", fontSize: 16 },
 });

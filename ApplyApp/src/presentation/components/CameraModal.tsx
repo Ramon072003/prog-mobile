@@ -11,6 +11,7 @@ interface CameraModalProps {
 
 export function CameraModal({ visible, onClose, onCapture }: CameraModalProps) {
   const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<"front" | "back">("back");
   const cameraRef = useRef<CameraView>(null);
 
   if (!permission) return null;
@@ -35,10 +36,16 @@ export function CameraModal({ visible, onClose, onCapture }: CameraModalProps) {
           </TouchableOpacity>
         </View>
       ) : (
-        <CameraView style={styles.camera} ref={cameraRef}>
+        <CameraView style={styles.camera} ref={cameraRef} facing={facing}>
           <View style={styles.controls}>
             <TouchableOpacity style={styles.captureBtn} onPress={handleCapture}>
               <View style={styles.innerCircle} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.flipIcon}
+              onPress={() => setFacing((f) => (f === "back" ? "front" : "back"))}
+            >
+              <Ionicons name="camera-reverse" size={32} color="#FFF" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.closeIcon} onPress={onClose}>
               <Ionicons name="close" size={32} color="#FFF" />
@@ -84,6 +91,11 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: "#FFF",
+  },
+  flipIcon: {
+    position: "absolute",
+    top: 50,
+    left: 30,
   },
   closeIcon: {
     position: "absolute",

@@ -1,5 +1,6 @@
 import { WorkoutExercise, MediaSyncStatus } from "../../domain/entities/WorkoutExercise";
 import { IWorkoutExerciseRepository } from "../../domain/repositories/IWorkoutExerciseRepository";
+import { generateUUID } from "../../infrastructure/utils/generateUUID";
 
 export interface AddExerciseProps {
   workout_id: string;
@@ -14,7 +15,7 @@ export class AddExerciseToWorkout {
 
   async execute(props: AddExerciseProps): Promise<WorkoutExercise> {
     const workoutExercise = new WorkoutExercise({
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateUUID(),
       ...props,
       media_sync: MediaSyncStatus.PENDING,
     });

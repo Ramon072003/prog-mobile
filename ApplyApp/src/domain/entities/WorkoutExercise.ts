@@ -43,6 +43,16 @@ export class WorkoutExercise {
     this.props.media_sync = MediaSyncStatus.UPLOADED;
   }
 
+  updatePerformance(sets: number, reps: number, weight: number, media_url?: string) {
+    if (sets <= 0) throw new Error("As séries devem ser maiores que zero.");
+    if (reps <= 0) throw new Error("As repetições devem ser maiores que zero.");
+    if (weight < 0) throw new Error("O peso não pode ser negativo.");
+    this.props.sets = sets;
+    this.props.reps = reps;
+    this.props.weight = weight;
+    if (media_url !== undefined) this.props.media_url = media_url;
+  }
+
   toJSON() {
     return { ...this.props };
   }
