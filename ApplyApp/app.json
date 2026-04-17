@@ -30,7 +30,19 @@
     "plugins": [
       "expo-sqlite",
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permite que o app salve a localização do seu treino."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite que o app tire fotos dos exercícios."
+        }
+      ]
     ]
   }
 }

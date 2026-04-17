@@ -66,14 +66,22 @@ export default function ActiveWorkoutScreen() {
       { text: "Cancelar", style: "cancel" },
       {
         text: "Finalizar", onPress: async () => {
-          const coords = await locationService.getCurrentLocation();
-          await completeWorkoutUC.execute(workout.id, coords?.latitude, coords?.longitude);
-          // Salvar duração
           try {
-            const db = await (await import("../../src/infrastructure/database/sqlite")).getDatabase();
-            await db.runAsync("UPDATE workouts SET duration_seconds = ? WHERE id = ?", [timer, workout.id]);
-          } catch { /* ignore */ }
-          router.replace(`/(app)/workout/${workout.id}`);
+            console.log("[FINISH] Solicitando localização...");
+            const coords = await locationService.getCurrentLocation();
+            console.log("[FINISH] Coordenadas recebidas:", JSON.stringify(coords));
+            await completeWorkoutUC.execute(workout.id, coords?.latitude, coords?.longitude);
+            console.log("[FINISH] Treino completado com sucesso");
+            // Salvar duração
+            try {
+              const db = await (await import("../../src/infrastructure/database/sqlite")).getDatabase();
+              await db.runAsync("UPDATE workouts SET duration_seconds = ? WHERE id = ?", [timer, workout.id]);
+            } catch { /* ignore */ }
+            router.replace(`/(app)/workout/${workout.id}`);
+          } catch (err) {
+            console.error("[FINISH] Erro ao finalizar:", err);
+            Alert.alert("Erro", String(err));
+          }
         }
       },
     ]);

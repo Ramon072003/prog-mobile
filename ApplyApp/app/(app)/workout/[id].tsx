@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Image, Linking,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import MapView, { Marker } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { SQLiteWorkoutRepository } from "../../../src/infrastructure/repositories/SQLiteWorkoutRepository";
 import { SQLiteWorkoutExerciseRepository } from "../../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
@@ -41,6 +40,7 @@ export default function WorkoutDetailScreen() {
     setLoading(true);
     if (id) {
       const w = await workoutRepo.findById(id);
+      console.log("[DETAIL] Workout carregado:", JSON.stringify({ id: w?.id, lat: w?.latitude, lng: w?.longitude, status: w?.status }));
       setWorkout(w);
       const list = await weRepo.findByWorkoutId(id);
       const allExercises = await exerciseRepo.findAll();
@@ -122,15 +122,21 @@ export default function WorkoutDetailScreen() {
 
         {/* Mapa condicional */}
         {workout.latitude && workout.longitude ? (
-          <View style={styles.mapContainer}>
-            <MapView
+          <TouchableOpacity
+            style={styles.mapContainer}
+            activeOpacity={0.8}
+            onPress={() => Linking.openURL(`https://www.google.com/maps?q=${workout.latitude},${workout.longitude}`)}
+          >
+            <Image
+              source={{ uri: `https://staticmap.openstreetmap.de/staticmap.php?center=${workout.latitude},${workout.longitude}&zoom=15&size=600x300&markers=${workout.latitude},${workout.longitude},red-pushpin` }}
               style={StyleSheet.absoluteFillObject}
-              initialRegion={{ latitude: workout.latitude, longitude: workout.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
-              scrollEnabled={false} pitchEnabled={false} rotateEnabled={false} zoomEnabled={false}
-            >
-              <Marker coordinate={{ latitude: workout.latitude, longitude: workout.longitude }} />
-            </MapView>
-          </View>
+              resizeMode="cover"
+            />
+            <View style={styles.mapOverlay}>
+              <Ionicons name="location" size={16} color="#FFF" />
+              <Text style={styles.mapOverlayText}>Abrir no Maps</Text>
+            </View>
+          </TouchableOpacity>
         ) : null}
 
         {/* Exercícios */}
@@ -191,9 +197,17 @@ const styles = StyleSheet.create({
   },
   chipText: { color: "#FFF", fontSize: 13 },
   mapContainer: {
-    height: 180, borderRadius: 14, overflow: "hidden",
+    height: 200, width: "100%", borderRadius: 14, overflow: "hidden",
     marginBottom: 24, borderWidth: 1, borderColor: "#2A2A2A",
+    backgroundColor: "#1E1E1E", position: "relative",
   },
+  mapOverlay: {
+    position: "absolute", bottom: 10, right: 10,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 10,
+    paddingVertical: 6, borderRadius: 16,
+  },
+  mapOverlayText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
   sectionTitle: { color: "#FFF", fontSize: 16, fontWeight: "bold", marginBottom: 12 },
   card: {
     backgroundColor: "#1E1E1E", borderRadius: 14,
