@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Alert, Image, Linking,
+  ActivityIndicator, Alert, Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { SQLiteWorkoutRepository } from "../../../src/infrastructure/repositories/SQLiteWorkoutRepository";
 import { SQLiteWorkoutExerciseRepository } from "../../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
 import { SQLiteExerciseRepository } from "../../../src/infrastructure/repositories/SQLiteExerciseRepository";
@@ -25,6 +26,7 @@ export default function WorkoutDetailScreen() {
   const [rows, setRows] = useState<ExerciseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [cloning, setCloning] = useState(false);
+  const [mapScrollEnabled, setMapScrollEnabled] = useState(true);
   const router = useRouter();
 
   const workoutRepo = new SQLiteWorkoutRepository();
@@ -86,7 +88,7 @@ export default function WorkoutDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} scrollEnabled={mapScrollEnabled} nestedScrollEnabled>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -122,21 +124,35 @@ export default function WorkoutDetailScreen() {
 
         {/* Mapa condicional */}
         {workout.latitude && workout.longitude ? (
-          <TouchableOpacity
-            style={styles.mapContainer}
-            activeOpacity={0.8}
-            onPress={() => Linking.openURL(`https://www.google.com/maps?q=${workout.latitude},${workout.longitude}`)}
+          <View
+            style={styles.mapWrapper}
+            onTouchStart={() => setMapScrollEnabled(false)}
+            onTouchEnd={() => setMapScrollEnabled(true)}
+            onTouchCancel={() => setMapScrollEnabled(true)}
           >
-            <Image
-              source={{ uri: `https://staticmap.openstreetmap.de/staticmap.php?center=${workout.latitude},${workout.longitude}&zoom=15&size=600x300&markers=${workout.latitude},${workout.longitude},red-pushpin` }}
-              style={StyleSheet.absoluteFillObject}
-              resizeMode="cover"
-            />
-            <View style={styles.mapOverlay}>
-              <Ionicons name="location" size={16} color="#FFF" />
-              <Text style={styles.mapOverlayText}>Abrir no Maps</Text>
-            </View>
-          </TouchableOpacity>
+            <MapView
+              provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+              style={styles.mapContainer}
+              initialRegion={{
+                latitude: workout.latitude,
+                longitude: workout.longitude,
+                latitudeDelta: 0.005,
+                longitudeDelta: 0.005,
+              }}
+              scrollEnabled
+              zoomEnabled
+              pitchEnabled={false}
+              rotateEnabled={false}
+            >
+              <Marker
+                coordinate={{
+                  latitude: workout.latitude,
+                  longitude: workout.longitude,
+                }}
+                title="Local do treino"
+              />
+            </MapView>
+          </View>
         ) : null}
 
         {/* Exercícios */}
@@ -196,18 +212,13 @@ const styles = StyleSheet.create({
     borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: "#2A2A2A",
   },
   chipText: { color: "#FFF", fontSize: 13 },
+  mapWrapper: {
+    marginBottom: 24, position: "relative",
+  },
   mapContainer: {
-    height: 200, width: "100%", borderRadius: 14, overflow: "hidden",
-    marginBottom: 24, borderWidth: 1, borderColor: "#2A2A2A",
-    backgroundColor: "#1E1E1E", position: "relative",
+    height: 250, width: "100%", borderRadius: 14, overflow: "hidden",
+    borderWidth: 1, borderColor: "#2A2A2A", backgroundColor: "#1E1E1E",
   },
-  mapOverlay: {
-    position: "absolute", bottom: 10, right: 10,
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 10,
-    paddingVertical: 6, borderRadius: 16,
-  },
-  mapOverlayText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
   sectionTitle: { color: "#FFF", fontSize: 16, fontWeight: "bold", marginBottom: 12 },
   card: {
     backgroundColor: "#1E1E1E", borderRadius: 14,
