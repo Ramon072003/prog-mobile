@@ -2,10 +2,8 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { SQLiteExerciseRepository } from "../../src/infrastructure/repositories/SQLiteExerciseRepository";
-import { SQLiteWorkoutExerciseRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
-import { AddExerciseToWorkout } from "../../src/application/use-cases/AddExerciseToWorkout";
 import { Exercise } from "../../src/domain/entities/Exercise";
+import { useDI } from "../../src/presentation/contexts/DIContext";
 
 export default function ExerciseSelectorScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -16,9 +14,7 @@ export default function ExerciseSelectorScreen() {
   const { workoutId } = useLocalSearchParams<{ workoutId: string }>();
   const router = useRouter();
 
-  const exerciseRepo = new SQLiteExerciseRepository();
-  const weRepo = new SQLiteWorkoutExerciseRepository();
-  const addExerciseUC = new AddExerciseToWorkout(weRepo);
+  const { exerciseRepo, addExerciseToWorkout: addExerciseUC } = useDI();
 
   useEffect(() => {
     loadExercises();

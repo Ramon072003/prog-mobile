@@ -4,15 +4,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
-import { CreateWorkout } from "../../src/application/use-cases/CreateWorkout";
-import { CompleteWorkout } from "../../src/application/use-cases/CompleteWorkout";
-import { RemoveExerciseFromWorkout } from "../../src/application/use-cases/RemoveExerciseFromWorkout";
-import { SQLiteWorkoutRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutRepository";
-import { SQLiteWorkoutExerciseRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
 import { Workout } from "../../src/domain/entities/Workout";
 import { WorkoutExercise } from "../../src/domain/entities/WorkoutExercise";
 import { supabase } from "../../src/infrastructure/api/supabase";
-import { LocationService } from "../../src/infrastructure/services/LocationService";
+import { useDI } from "../../src/presentation/contexts/DIContext";
 
 const WEEK_DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -22,12 +17,13 @@ export default function ActiveWorkoutScreen() {
   const [timer, setTimer] = useState(0);
   const router = useRouter();
 
-  const workoutRepo = new SQLiteWorkoutRepository();
-  const weRepo = new SQLiteWorkoutExerciseRepository();
-  const createWorkoutUC = new CreateWorkout(workoutRepo);
-  const completeWorkoutUC = new CompleteWorkout(workoutRepo);
-  const removeExerciseUC = new RemoveExerciseFromWorkout(weRepo);
-  const locationService = new LocationService();
+  const {
+    workoutExerciseRepo: weRepo,
+    createWorkout: createWorkoutUC,
+    completeWorkout: completeWorkoutUC,
+    removeExerciseFromWorkout: removeExerciseUC,
+    locationService,
+  } = useDI();
 
   useEffect(() => {
     initWorkout();
@@ -72,9 +68,10 @@ export default function ActiveWorkoutScreen() {
             console.log("[FINISH] Coordenadas recebidas:", JSON.stringify(coords));
             await completeWorkoutUC.execute(workout.id, coords?.latitude, coords?.longitude);
             console.log("[FINISH] Treino completado com sucesso");
-            // Salvar duração
+            // TODO: adicionar duration_seconds à entidade Workout e ao repositório
             try {
-              const db = await (await import("../../src/infrastructure/database/sqlite")).getDatabase();
+              const { getDatabase } = await import("../../src/infrastructure/database/sqlite");
+              const db = await getDatabase();
               await db.runAsync("UPDATE workouts SET duration_seconds = ? WHERE id = ?", [timer, workout.id]);
             } catch { /* ignore */ }
             router.replace(`/(app)/workout/${workout.id}`);

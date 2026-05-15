@@ -2,13 +2,9 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, Modal, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../src/infrastructure/api/supabase";
-import { GetUserProfile } from "../../src/application/use-cases/GetUserProfile";
-import { UpdateUserAvatar } from "../../src/application/use-cases/UpdateUserAvatar";
-import { SQLiteUserProfileRepository } from "../../src/infrastructure/repositories/SQLiteUserProfileRepository";
-import { SupabaseUserProfileRepository } from "../../src/infrastructure/repositories/SupabaseUserProfileRepository";
-import { MediaService } from "../../src/infrastructure/services/MediaService";
 import { UserProfile } from "../../src/domain/entities/UserProfile";
 import { AvatarPicker } from "../../src/presentation/components/AvatarPicker";
+import { useDI } from "../../src/presentation/contexts/DIContext";
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -19,11 +15,12 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const localRepo = new SQLiteUserProfileRepository();
-  const remoteRepo = new SupabaseUserProfileRepository();
-  const mediaService = new MediaService();
-  const getProfileUC = new GetUserProfile(localRepo, remoteRepo);
-  const updateAvatarUC = new UpdateUserAvatar(localRepo, remoteRepo, mediaService);
+  const {
+    userProfileRepo: localRepo,
+    remoteUserProfileRepo: remoteRepo,
+    getUserProfile: getProfileUC,
+    updateUserAvatar: updateAvatarUC,
+  } = useDI();
 
   useEffect(() => {
     loadProfile();

@@ -2,23 +2,34 @@ import React, { useEffect, useState } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { supabase, isSupabaseConfigured } from "../src/infrastructure/api/supabase";
 import { Session } from "@supabase/supabase-js";
-import { useSyncWorker } from "../src/application/use-cases/useSyncWorker";
+import { useSyncWorker } from "../src/presentation/hooks/useSyncWorker";
 import { initializeDatabase } from "../src/infrastructure/database/sqlite";
+import { DIProvider, useDI } from "../src/presentation/contexts/DIContext";
 
 export default function RootLayout() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [initialized, setInitialized] = useState(false);
   const [dbReady, setDbReady] = useState(false);
-  const segments = useSegments();
-  const router = useRouter();
-
-  useSyncWorker(dbReady);
 
   useEffect(() => {
     initializeDatabase()
       .then(() => setDbReady(true))
       .catch((err) => console.error("Erro ao inicializar banco:", err));
   }, []);
+
+  return (
+    <DIProvider>
+      <RootNavigator dbReady={dbReady} />
+    </DIProvider>
+  );
+}
+
+function RootNavigator({ dbReady }: { dbReady: boolean }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [initialized, setInitialized] = useState(false);
+  const segments = useSegments();
+  const router = useRouter();
+  const { syncOrchestrator } = useDI();
+
+  useSyncWorker(dbReady, syncOrchestrator);
 
   useEffect(() => {
     if (!dbReady) return;

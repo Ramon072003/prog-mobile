@@ -1,20 +1,21 @@
 import { SQLiteExerciseRepository } from "../SQLiteExerciseRepository";
 import { Exercise } from "../../../domain/entities/Exercise";
-import * as SQLite from "expo-sqlite";
+import { getDatabase } from "../../database/sqlite";
 
-jest.mock("expo-sqlite");
+const mockDb = {
+  getAllAsync: jest.fn(),
+  runAsync: jest.fn(),
+  getFirstAsync: jest.fn(),
+};
+
+jest.mock("../../database/sqlite");
 
 describe("SQLiteExerciseRepository", () => {
   let repo: SQLiteExerciseRepository;
-  let mockDb: any;
 
   beforeEach(() => {
-    mockDb = {
-      getAllAsync: jest.fn(),
-      runAsync: jest.fn(),
-      getFirstAsync: jest.fn(),
-    };
-    (SQLite.openDatabaseAsync as jest.Mock).mockResolvedValue(mockDb);
+    jest.clearAllMocks();
+    (getDatabase as jest.Mock).mockResolvedValue(mockDb);
     repo = new SQLiteExerciseRepository();
   });
 

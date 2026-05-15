@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../src/infrastructure/api/supabase";
-import { SQLiteWorkoutRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutRepository";
-import { SQLiteWorkoutExerciseRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
+import { useDI } from "../../src/presentation/contexts/DIContext";
 
 interface Stats {
   totalWorkouts: number;
@@ -16,8 +15,7 @@ export default function StatsScreen() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const workoutRepo = new SQLiteWorkoutRepository();
-  const weRepo = new SQLiteWorkoutExerciseRepository();
+  const { workoutRepo, workoutExerciseRepo: weRepo } = useDI();
 
   useEffect(() => {
     load();

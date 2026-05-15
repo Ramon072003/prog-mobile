@@ -2,15 +2,15 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { SQLiteWorkoutRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutRepository";
 import { Workout } from "../../src/domain/entities/Workout";
 import { supabase } from "../../src/infrastructure/api/supabase";
+import { useDI } from "../../src/presentation/contexts/DIContext";
 
 export default function HistoryScreen() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const workoutRepo = new SQLiteWorkoutRepository();
+  const { workoutRepo } = useDI();
 
   useEffect(() => {
     load();

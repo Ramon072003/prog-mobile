@@ -6,13 +6,8 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../src/infrastructure/api/supabase";
-import { GetUserProfile } from "../../src/application/use-cases/GetUserProfile";
-import { GetWeeklyWorkoutsSummary, WorkoutSummaryItem } from "../../src/application/use-cases/GetWeeklyWorkoutsSummary";
-import { SQLiteUserProfileRepository } from "../../src/infrastructure/repositories/SQLiteUserProfileRepository";
-import { SupabaseUserProfileRepository } from "../../src/infrastructure/repositories/SupabaseUserProfileRepository";
-import { SQLiteWorkoutRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutRepository";
-import { SQLiteWorkoutExerciseRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
-import { SQLiteExerciseRepository } from "../../src/infrastructure/repositories/SQLiteExerciseRepository";
+import { WorkoutSummaryItem } from "../../src/application/use-cases/GetWeeklyWorkoutsSummary";
+import { useDI } from "../../src/presentation/contexts/DIContext";
 
 const DAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
 const GREETING_HOUR = () => {
@@ -29,15 +24,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [workoutDays, setWorkoutDays] = useState<Set<number>>(new Set());
   const router = useRouter();
-
-  const localProfileRepo = new SQLiteUserProfileRepository();
-  const remoteProfileRepo = new SupabaseUserProfileRepository();
-  const workoutRepo = new SQLiteWorkoutRepository();
-  const weRepo = new SQLiteWorkoutExerciseRepository();
-  const exerciseRepo = new SQLiteExerciseRepository();
-
-  const getProfileUC = new GetUserProfile(localProfileRepo, remoteProfileRepo);
-  const getWeeklySummaryUC = new GetWeeklyWorkoutsSummary(workoutRepo, weRepo, exerciseRepo);
+  const { getUserProfile, getWeeklyWorkoutsSummary } = useDI();
 
   useFocusEffect(
     useCallback(() => {
@@ -52,8 +39,8 @@ export default function HomeScreen() {
       if (!user) return;
 
       const [profile, weekSummary] = await Promise.all([
-        getProfileUC.execute(user.id),
-        getWeeklySummaryUC.execute(user.id),
+        getUserProfile.execute(user.id),
+        getWeeklyWorkoutsSummary.execute(user.id),
       ]);
 
       if (profile) {

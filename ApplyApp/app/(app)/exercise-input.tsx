@@ -4,12 +4,9 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { SQLiteWorkoutExerciseRepository } from "../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
-import { AddExerciseToWorkout } from "../../src/application/use-cases/AddExerciseToWorkout";
-import { UpdateWorkoutExercise } from "../../src/application/use-cases/UpdateWorkoutExercise";
 import { CameraModal } from "../../src/presentation/components/CameraModal";
-import { MediaService } from "../../src/infrastructure/services/MediaService";
 import { StepperInput } from "../../src/presentation/components/StepperInput";
+import { useDI } from "../../src/presentation/contexts/DIContext";
 
 export default function ExerciseInputScreen() {
   const {
@@ -35,10 +32,11 @@ export default function ExerciseInputScreen() {
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
-  const weRepo = new SQLiteWorkoutExerciseRepository();
-  const addExerciseUC = new AddExerciseToWorkout(weRepo);
-  const updateExerciseUC = new UpdateWorkoutExercise(weRepo);
-  const mediaService = new MediaService();
+  const {
+    addExerciseToWorkout: addExerciseUC,
+    updateWorkoutExercise: updateExerciseUC,
+    mediaService,
+  } = useDI();
 
   async function handleSave() {
     setLoading(true);
