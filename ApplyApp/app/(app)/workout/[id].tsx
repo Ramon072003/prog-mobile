@@ -1,18 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Alert, Platform,
+  ActivityIndicator, Alert, Platform, Image,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { SQLiteWorkoutRepository } from "../../../src/infrastructure/repositories/SQLiteWorkoutRepository";
-import { SQLiteWorkoutExerciseRepository } from "../../../src/infrastructure/repositories/SQLiteWorkoutExerciseRepository";
-import { SQLiteExerciseRepository } from "../../../src/infrastructure/repositories/SQLiteExerciseRepository";
-import { CloneWorkout } from "../../../src/application/use-cases/CloneWorkout";
 import { Workout } from "../../../src/domain/entities/Workout";
 import { WorkoutExercise } from "../../../src/domain/entities/WorkoutExercise";
 import { supabase } from "../../../src/infrastructure/api/supabase";
+import { useDI } from "../../../src/presentation/contexts/DIContext";
 
 interface ExerciseRow {
   we: WorkoutExercise;
@@ -29,10 +26,12 @@ export default function WorkoutDetailScreen() {
   const [mapScrollEnabled, setMapScrollEnabled] = useState(true);
   const router = useRouter();
 
-  const workoutRepo = new SQLiteWorkoutRepository();
-  const weRepo = new SQLiteWorkoutExerciseRepository();
-  const exerciseRepo = new SQLiteExerciseRepository();
-  const cloneWorkoutUC = new CloneWorkout(workoutRepo, weRepo);
+  const {
+    workoutRepo,
+    workoutExerciseRepo: weRepo,
+    exerciseRepo,
+    cloneWorkout: cloneWorkoutUC,
+  } = useDI();
 
   useEffect(() => {
     load();
@@ -177,6 +176,15 @@ export default function WorkoutDetailScreen() {
                 <Text style={styles.statValue}>{we.weight} kg</Text>
               </View>
             </View>
+            {we.media_url ? (
+              <View style={styles.mediaRow}>
+                <Image source={{ uri: we.media_url }} style={styles.mediaThumbnail} />
+                <View style={styles.mediaInfo}>
+                  <Ionicons name="camera" size={14} color="#00C853" />
+                  <Text style={styles.mediaText}>Evidência registrada</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         ))}
       </View>
@@ -235,6 +243,17 @@ const styles = StyleSheet.create({
   statCol: { flex: 1, alignItems: "center" },
   statLabel: { color: "#666", fontSize: 10, marginBottom: 4 },
   statValue: { color: "#FFF", fontSize: 20, fontWeight: "bold" },
+  mediaRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#2A2A2A",
+  },
+  mediaThumbnail: {
+    width: 60, height: 60, borderRadius: 8, backgroundColor: "#2A2A2A",
+  },
+  mediaInfo: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+  },
+  mediaText: { color: "#666", fontSize: 12 },
   cloneBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     backgroundColor: "#00C853", marginHorizontal: 20, marginTop: 24,

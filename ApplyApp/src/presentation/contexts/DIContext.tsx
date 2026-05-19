@@ -30,6 +30,7 @@ import { GetWeeklyWorkoutsSummary } from "../../application/use-cases/GetWeeklyW
 import { SyncWorkouts } from "../../application/use-cases/SyncWorkouts";
 import { SyncExerciseList } from "../../application/use-cases/SyncExerciseList";
 import { SyncOrchestrator } from "../../application/use-cases/SyncOrchestrator";
+import { UploadPendingMedia } from "../../application/use-cases/UploadPendingMedia";
 
 export interface DIContainer {
   // Repositories (local)
@@ -91,7 +92,8 @@ function createContainer(): DIContainer {
 
   const syncWorkouts = new SyncWorkouts(workoutRepo, workoutExerciseRepo, remoteWorkoutRepo, remoteWorkoutExerciseRepo);
   const syncExercises = new SyncExerciseList(remoteExerciseRepo, exerciseRepo);
-  const syncOrchestrator = new SyncOrchestrator(syncWorkouts, syncExercises);
+  const uploadPendingMedia = new UploadPendingMedia(workoutExerciseRepo, mediaService);
+  const syncOrchestrator = new SyncOrchestrator(syncWorkouts, syncExercises, uploadPendingMedia);
 
   return {
     workoutRepo,

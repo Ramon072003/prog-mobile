@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Animated,
+  View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Animated, ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -15,6 +15,7 @@ export default function ActiveWorkoutScreen() {
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [timer, setTimer] = useState(0);
+  const [finishing, setFinishing] = useState(false);
   const router = useRouter();
 
   const {
@@ -62,12 +63,10 @@ export default function ActiveWorkoutScreen() {
       { text: "Cancelar", style: "cancel" },
       {
         text: "Finalizar", onPress: async () => {
+          setFinishing(true);
           try {
-            console.log("[FINISH] Solicitando localização...");
             const coords = await locationService.getCurrentLocation();
-            console.log("[FINISH] Coordenadas recebidas:", JSON.stringify(coords));
             await completeWorkoutUC.execute(workout.id, coords?.latitude, coords?.longitude);
-            console.log("[FINISH] Treino completado com sucesso");
             // TODO: adicionar duration_seconds à entidade Workout e ao repositório
             try {
               const { getDatabase } = await import("../../src/infrastructure/database/sqlite");
@@ -76,8 +75,9 @@ export default function ActiveWorkoutScreen() {
             } catch { /* ignore */ }
             router.replace(`/(app)/workout/${workout.id}`);
           } catch (err) {
-            console.error("[FINISH] Erro ao finalizar:", err);
             Alert.alert("Erro", String(err));
+          } finally {
+            setFinishing(false);
           }
         }
       },
@@ -168,10 +168,17 @@ export default function ActiveWorkoutScreen() {
           <Ionicons name="add" size={22} color="#00C853" />
           <Text style={styles.addBtnText}>EXERCÍCIO</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.finishBtn} onPress={handleFinish}>
-          <Text style={styles.finishBtnText}>FINALIZAR</Text>
+        <TouchableOpacity style={[styles.finishBtn, finishing && { opacity: 0.7 }]} onPress={handleFinish} disabled={finishing}>
+          <Text style={styles.finishBtnText}>{finishing ? "FINALIZANDO..." : "FINALIZAR"}</Text>
         </TouchableOpacity>
       </View>
+
+      {finishing && (
+        <View style={styles.finishingOverlay}>
+          <ActivityIndicator color="#00C853" size="large" />
+          <Text style={styles.finishingText}>Obtendo localização...</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -226,4 +233,12 @@ const styles = StyleSheet.create({
     borderRadius: 30, paddingVertical: 16, alignItems: "center", justifyContent: "center",
   },
   finishBtnText: { color: "#000", fontWeight: "bold", fontSize: 14 },
+  finishingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  finishingText: { color: "#FFF", fontSize: 16 },
 });
