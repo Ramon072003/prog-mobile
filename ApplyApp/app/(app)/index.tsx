@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, ScrollView, Image,
@@ -75,7 +75,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>{GREETING_HOUR()},</Text>
-          <Text style={styles.userName}>{userName}! 💪</Text>
+          <Text style={styles.userName}>{userName}!</Text>
           <Text style={styles.brand}>REPFORGE TRACKER</Text>
         </View>
         <View style={styles.avatarCircle}>

@@ -2,15 +2,15 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Workout } from "../../src/domain/entities/Workout";
 import { supabase } from "../../src/infrastructure/api/supabase";
 import { useDI } from "../../src/presentation/contexts/DIContext";
+import { WorkoutSummaryItem } from "../../src/application/use-cases/GetWeeklyWorkoutsSummary";
 
 export default function HistoryScreen() {
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [items, setItems] = useState<WorkoutSummaryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const { workoutRepo } = useDI();
+  const { workoutRepo, workoutExerciseRepo, exerciseRepo } = useDI();
 
   useEffect(() => {
     load();
@@ -20,15 +20,26 @@ export default function HistoryScreen() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // Busca últimos 90 dias
       const start = new Date();
       start.setDate(start.getDate() - 90);
-      const data = await workoutRepo.findWeeklyByUserId(
+      const workouts = await workoutRepo.findWeeklyByUserId(
         user.id,
         start.toISOString().split("T")[0],
         new Date().toISOString().split("T")[0]
       );
-      setWorkouts(data);
+      const allExercises = await exerciseRepo.findAll();
+      const exerciseMap = new Map(allExercises.map(e => [e.id, e]));
+      const summary: WorkoutSummaryItem[] = [];
+      for (const workout of workouts) {
+        const wes = await workoutExerciseRepo.findByWorkoutId(workout.id);
+        const muscleGroupSet = new Set<string>();
+        for (const we of wes) {
+          const ex = exerciseMap.get(we.exercise_id);
+          if (ex) muscleGroupSet.add(ex.muscle_group);
+        }
+        summary.push({ workout, exerciseCount: wes.length, muscleGroups: Array.from(muscleGroupSet) });
+      }
+      setItems(summary);
     }
     setLoading(false);
   }
@@ -47,26 +58,38 @@ export default function HistoryScreen() {
       <Text style={styles.header}>Histórico</Text>
 
       <FlatList
-        data={workouts}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        data={items}
+        keyExtractor={(item) => item.workout.id}
+        renderItem={({ item: { workout, exerciseCount, muscleGroups } }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => router.push(`/(app)/workout/${item.id}`)}
+            onPress={() => router.push(`/(app)/workout/${workout.id}`)}
             activeOpacity={0.8}
           >
-            <View style={styles.cardLeft}>
-              <Text style={styles.cardDate}>{formatDate(item.date)}</Text>
-              <Text style={styles.cardStatus}>
-                {item.status === "completed" ? "✓ Concluído" : "● Em aberto"}
-              </Text>
+            <View style={styles.cardTop}>
+              <View style={styles.cardLeft}>
+                <Text style={styles.cardDate}>{formatDate(workout.date)}</Text>
+                <View style={styles.cardDetails}>
+                  <Ionicons name="barbell-outline" size={13} color="#00C853" />
+                  <Text style={styles.cardDetailText}>{exerciseCount} exercício{exerciseCount !== 1 ? "s" : ""}</Text>
+                </View>
+              </View>
+              <View style={styles.cardRight}>
+                {workout.status === "completed"
+                  ? <Ionicons name="checkmark-circle" size={22} color="#00C853" />
+                  : <Ionicons name="ellipse-outline" size={22} color="#666" />}
+                <Ionicons name="chevron-forward" size={18} color="#444" />
+              </View>
             </View>
-            <View style={styles.cardRight}>
-              {item.sync_status === "synced"
-                ? <Ionicons name="cloud-done-outline" size={20} color="#00C853" />
-                : <Ionicons name="time-outline" size={20} color="#666" />}
-              <Ionicons name="chevron-forward" size={18} color="#333" style={{ marginTop: 4 }} />
-            </View>
+            {muscleGroups.length > 0 && (
+              <View style={styles.muscleGroups}>
+                {muscleGroups.map(mg => (
+                  <View key={mg} style={styles.badge}>
+                    <Text style={styles.badgeText}>{mg.toUpperCase()}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </TouchableOpacity>
         )}
         ListEmptyComponent={
@@ -97,16 +120,43 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 16,
     borderRadius: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     borderLeftWidth: 4,
     borderLeftColor: "#00C853",
   },
+  cardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   cardLeft: { flex: 1 },
   cardDate: { color: "#FFF", fontSize: 15, fontWeight: "bold" },
-  cardStatus: { color: "#666", fontSize: 13, marginTop: 4 },
-  cardRight: { alignItems: "center" },
+  cardDetails: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 4,
+  },
+  cardDetailText: { color: "#999", fontSize: 13 },
+  cardRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  muscleGroups: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 10,
+  },
+  badge: {
+    backgroundColor: "#00C85322",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "#00C85366",
+  },
+  badgeText: { color: "#00C853", fontSize: 10, fontWeight: "bold" },
   empty: { alignItems: "center", marginTop: 100 },
   emptyText: { color: "#666", marginTop: 15, fontSize: 16 },
 });

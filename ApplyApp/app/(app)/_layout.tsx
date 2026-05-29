@@ -1,4 +1,4 @@
-import { Tabs, Stack } from "expo-router";
+import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function AppLayout() {
@@ -43,6 +43,12 @@ export default function AppLayout() {
           ),
         }}
       />
+      {/* Screens que ficam fora das tabs */}
+      <Tabs.Screen name="active-workout" options={{ href: null }} />
+      <Tabs.Screen name="exercise-selector" options={{ href: null }} />
+      <Tabs.Screen name="exercise-input" options={{ href: null }} />
+      <Tabs.Screen name="workout/[id]" options={{ href: null }} />
+      {/* Perfil sempre por último na navbar */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -52,11 +58,6 @@ export default function AppLayout() {
           ),
         }}
       />
-      {/* Screens que ficam fora das tabs, como stack over tabs */}
-      <Tabs.Screen name="active-workout" options={{ href: null }} />
-      <Tabs.Screen name="exercise-selector" options={{ href: null }} />
-      <Tabs.Screen name="exercise-input" options={{ href: null }} />
-      <Tabs.Screen name="workout" options={{ href: null }} />
     </Tabs>
   );
 }

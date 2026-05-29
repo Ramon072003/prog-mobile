@@ -83,7 +83,23 @@ export default function WorkoutDetailScreen() {
     return <ActivityIndicator color="#00C853" size="large" style={{ flex: 1, backgroundColor: "#121212" }} />;
   }
   if (!workout) {
-    return <View style={styles.container}><Text style={{ color: "#FFF", padding: 20 }}>Não encontrado</Text></View>;
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <Ionicons name="barbell-outline" size={64} color="#333" />
+        <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "bold", marginTop: 16 }}>
+          Treino não encontrado
+        </Text>
+        <Text style={{ color: "#666", fontSize: 14, marginTop: 8, textAlign: "center", paddingHorizontal: 40 }}>
+          Este treino pode ter sido removido ou o link é inválido.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginTop: 24, backgroundColor: "#00C853", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 }}
+        >
+          <Text style={{ color: "#000", fontWeight: "bold", fontSize: 14 }}>Voltar</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
