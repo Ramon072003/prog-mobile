@@ -18,12 +18,6 @@ export default {
     },
     android: {
       package: "com.anonymous.ApplyApp",
-      adaptiveIcon: {
-        backgroundColor: "#E6F4FE",
-        foregroundImage: "./assets/android-icon-foreground.png",
-        backgroundImage: "./assets/android-icon-background.png",
-        monochromeImage: "./assets/android-icon-monochrome.png",
-      },
       predictiveBackGestureEnabled: false,
       config: {
         googleMaps: {
