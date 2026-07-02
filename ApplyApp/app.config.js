@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "ApplyApp",
+    name: "Repforge Tracker",
     slug: "ApplyApp",
     scheme: "applyapp",
     version: "1.0.0",
@@ -33,6 +33,11 @@ export default {
     },
     web: {
       favicon: "./assets/favicon.png",
+    },
+    extra: {
+      eas: {
+        projectId: "b1757ed2-511c-44e4-8a05-1ee32c12627d",
+      },
     },
     plugins: [
       "expo-sqlite",
